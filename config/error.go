@@ -1,6 +1,11 @@
 // 配置文件错误处理
 package config
 
+import (
+	"errors"
+	"fmt"
+)
+
 // 配置错误信息
 type ConfigError string
 
@@ -11,3 +16,13 @@ const (
 	ConfigErrorReadError             ConfigError = "C10040:ConfigErrorReadError,无法读取配置文件(%s)"
 	ConfigErrorNotMatch              ConfigError = "C10050:ConfigErrorNotMatch,未找到匹配的字符(%s)"
 )
+
+// Format 格式化错误信息并生成新的错误信息
+func (this ConfigError) Format(data ...interface{}) ConfigError {
+	return ConfigError(fmt.Sprintf(string(this), data...))
+}
+
+// Error 生成错误类型
+func (this ConfigError) Error() error {
+	return errors.New(string(this))
+}

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"io/ioutil"
 	"sync"
 )
 
@@ -28,11 +29,30 @@ type Section interface {
 }
 
 // ConfigParser 配置解析器
-type ConfigParser func([]bytes) (Config,error)
+type ConfigParser func([]byte) (Config, error)
 
 var (
-	parserMu sync.Mutex	//生成器互斥锁
-	parsers = make(map(ConfigType)ConfigParser) //配置文件解析器
+	parserMu sync.Mutex                          //生成器互斥锁
+	parsers  = make(map[ConfigType]ConfigParser) //配置文件解析器
 )
 
+// NewConfig 创建一个新的Config
+func NewConfig(kind ConfigType, path string) (Config, error) {
+	var data, err = ioutil.ReadFile(path)
+	if err != nil {
+		return nil, ConfigErrorReadError.Format(kind).Error()
+	}
+	var parser, ok = parsers[kind]
+	if !ok {
+		return nil, ConfigErrorInvalidConfigKind.Format(kind).Error()
+	}
+	return parser(data)
+}
 
+// registerParser 注册解析器
+func registerParser(kind ConfigType, parser ConfigParser) error {
+	parserMu.Lock()
+	defer parserMu.Unlock()
+	parsers[kind] = parser
+	return nil
+}
