@@ -1,14 +1,88 @@
 package config
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // 导包时自动注册解析器
 var err = registerParser(ConfigTypeIni, configParserIni)
 
 // configParserIni ini类型配置文件解析器
-func configParserIni([]byte) (Config, error) {
-
-	return nil, nil
+func configParserIni(data []byte) (Config, error) {
+	var config = newIniConfig()
+	var currentSection = config.GlobalSection().(*IniSection) //GlobalSection().(*IniSection)
+	var length = len(data)
+	// 去除BOM头
+	if length >= 3 && data[0] == 239 && data[1] == 187 && data[2] == 191 {
+		length -= 3
+		data = data[3:]
+	}
+	for i := 0; i < length; i++ {
+		var char = string(data[i])
+		//跳过空白字符
+		if char == " " || char == "\n" || char == "\r" {
+			continue
+		}
+		switch char {
+		case "#", ";":
+			{
+				// 处理 # 和 ； 开头的注释文本
+				for j := i + 1; j < length; j++ {
+					if string(data[j]) == "\n" {
+						i = j
+						break
+					}
+				}
+			}
+		case "[":
+			{
+				var startPos = i + 1
+				var isFound = false
+				for j := i + 1; j < length; j++ {
+					if string(data[j]) == "]" {
+						var sectionName = string(data[startPos:j])
+						var section = newIniSection(sectionName)
+						config.sections[sectionName] = section
+						currentSection = section
+						isFound = true
+					}
+					if string(data[j]) == "\r" || j == length-1 {
+						if !isFound {
+							return nil, ConfigErrorReadError.Format("[").Error()
+						}
+						i = j
+						break
+					}
+				}
+			}
+		default:
+			{
+				var key, value string
+				var keyPos int
+				var isFound = false
+				for j := i + 1; j < length; j++ {
+					if string(data[j]) == "=" && !isFound {
+						key = string(data[i:j])
+						keyPos = j
+						isFound = true
+					}
+					if string(data[j]) == "\r" || j == length-1 {
+						if !isFound {
+							return nil, ConfigErrorNotMatch.Format("=").Error()
+						}
+						value = string(data[keyPos+1 : j])
+						key = strings.TrimSpace(key)
+						value = strings.TrimSpace(value)
+						currentSection.add(key, value)
+						i = j
+						break
+					}
+				}
+			}
+		}
+	}
+	return config, nil
 }
 
 // Ini配置
@@ -18,8 +92,8 @@ type IniConfig struct {
 }
 
 // 创建IniConfig
-func NewIniConfi() IniConfig {
-	return IniConfig{NewIniSection(""),
+func newIniConfig() *IniConfig {
+	return &IniConfig{newIniSection(""),
 		make(map[string]*IniSection)}
 }
 
@@ -44,7 +118,7 @@ type IniSection struct {
 }
 
 // 创建IniSection
-func NewIniSection(name string) *IniSection {
+func newIniSection(name string) *IniSection {
 	return &IniSection{name, make(map[string]string)}
 }
 

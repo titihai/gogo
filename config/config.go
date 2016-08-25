@@ -11,7 +11,7 @@ type Config interface {
 	// GlobalSection 获取全局配置段
 	GlobalSection() Section
 	// Section 获取特定配置段
-	Section(name string) (Section, error)
+	Section(name string) (Section, bool)
 }
 
 // Section 配置信息段接口
